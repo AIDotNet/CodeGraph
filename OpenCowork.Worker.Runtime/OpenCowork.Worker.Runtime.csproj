@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Shared worker runtime + transport + host. This project is the SINGLE SOURCE OF
+       TRUTH for the worker IPC/dispatch/host contract; it owns these sources outright
+       (Runtime/, Hosting/, Contracts/, Modules/SystemModule.cs).
+
+       Consumers:
+         * OpenCowork.CodeGraph.Worker — ProjectReference (this repo).
+         * OpenCowork.Native.Worker    — source-links Runtime/, Hosting/, Contracts/ and
+           Modules/SystemModule.cs from this directory (OpenCowork's main sidecar), so
+           both binaries speak the identical protocol. It supplies its own
+           Hosting/WorkerModuleCatalog.cs and its own Runtime/{AgentStreamMessagePackEmitter,
+           ApiUserAgent,WorkerHttpClientFactory}.cs, which is why those are NOT here.
+
+       Consequence: moving or renaming anything under Runtime/, Hosting/, Contracts/ or
+       Modules/SystemModule.cs is a cross-repo change. -->
+
+  <!-- Internals are visible to the two CodeGraph assemblies (all-internal convention). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenCowork.CodeGraph.Core" />
+    <InternalsVisibleTo Include="OpenCowork.CodeGraph.Worker" />
+  </ItemGroup>
+</Project>
