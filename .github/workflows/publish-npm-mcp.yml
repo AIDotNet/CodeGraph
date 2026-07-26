@@ -1,0 +1,66 @@
+name: Publish npm MCP
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Validate package versions and identifiers
+        shell: bash
+        run: |
+          dotnet_version=$(dotnet msbuild OpenCowork.CodeGraph.Mcp/OpenCowork.CodeGraph.Mcp.csproj -getProperty:Version -nologo)
+          npm_version=$(jq -r '.version' npm/codegraph-mcp/package.json)
+          manifest_version=$(jq -r '.version' npm/codegraph-mcp/.mcp/server.json)
+          manifest_package_version=$(jq -r '.packages[0].version' npm/codegraph-mcp/.mcp/server.json)
+          npm_name=$(jq -r '.name' npm/codegraph-mcp/package.json)
+          manifest_identifier=$(jq -r '.packages[0].identifier' npm/codegraph-mcp/.mcp/server.json)
+
+          test "$dotnet_version" = "$npm_version"
+          test "$npm_version" = "$manifest_version"
+          test "$npm_version" = "$manifest_package_version"
+          test "$npm_name" = "$manifest_identifier"
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            release_version="${GITHUB_REF_NAME#v}"
+            test "$npm_version" = "$release_version"
+          fi
+
+      - name: Restore, build, and test
+        run: |
+          dotnet restore CodeGraph.slnx
+          dotnet build CodeGraph.slnx -c Release --no-restore
+          dotnet test CodeGraph.slnx -c Release --no-build
+
+      - name: Build and pack npm MCP
+        run: |
+          npm run build --prefix npm
+          npm run pack --prefix npm
+
+      - name: Publish to npm
+        run: npm publish artifacts/npm/tarballs/*.tgz --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

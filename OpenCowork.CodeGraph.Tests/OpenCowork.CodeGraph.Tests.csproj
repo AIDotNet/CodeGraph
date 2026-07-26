@@ -38,6 +38,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenCowork.CodeGraph.Core\OpenCowork.CodeGraph.Core.csproj" />
+    <ProjectReference Include="..\OpenCowork.CodeGraph.Mcp\OpenCowork.CodeGraph.Mcp.csproj" />
+    <None Include="..\OpenCowork.CodeGraph.Mcp\.mcp\server.json"
+          Link="McpPackage\server.json"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Real-parse tests load the host RID's native parser + grammar libraries from

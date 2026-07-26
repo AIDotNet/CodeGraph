@@ -1,0 +1,42 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.aidotnet/codegraph",
+  "title": "OpenCowork CodeGraph",
+  "description": "Code intelligence with symbol search, call graphs, impact analysis, and source context.",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@aidotnet/codegraph-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--project",
+          "description": "Absolute path to the project CodeGraph should index and query.",
+          "format": "filepath",
+          "isRequired": false,
+          "placeholder": "/absolute/path/to/project"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "CODEGRAPH_MCP_TOOLS",
+          "description": "Optional comma-separated allowlist of CodeGraph tools to advertise.",
+          "format": "string",
+          "isRequired": false
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/AIDotNet/CodeGraph",
+    "source": "github",
+    "subfolder": "npm/codegraph-mcp"
+  },
+  "websiteUrl": "https://github.com/AIDotNet/CodeGraph"
+}

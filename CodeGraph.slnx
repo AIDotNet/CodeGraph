@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="OpenCowork.CodeGraph.Core/OpenCowork.CodeGraph.Core.csproj" />
+  <Project Path="OpenCowork.CodeGraph.Mcp/OpenCowork.CodeGraph.Mcp.csproj" />
   <Project Path="OpenCowork.CodeGraph.Tests/OpenCowork.CodeGraph.Tests.csproj" />
   <Project Path="OpenCowork.CodeGraph.Worker/OpenCowork.CodeGraph.Worker.csproj" />
   <Project Path="OpenCowork.Worker.Runtime/OpenCowork.Worker.Runtime.csproj" />

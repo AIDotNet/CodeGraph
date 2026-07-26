@@ -1,0 +1,9 @@
+{
+  "name": "opencowork-codegraph-npm-build",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-package.mjs",
+    "pack": "npm pack ../artifacts/npm/package --pack-destination ../artifacts/npm/tarballs"
+  }
+}

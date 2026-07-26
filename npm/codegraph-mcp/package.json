@@ -1,0 +1,48 @@
+{
+  "name": "@aidotnet/codegraph-mcp",
+  "version": "1.0.0",
+  "description": "Code intelligence MCP server for symbol search, call graphs, impact analysis, and source context.",
+  "type": "module",
+  "bin": {
+    "opencowork-codegraph-mcp": "bin/opencowork-codegraph-mcp.mjs"
+  },
+  "files": [
+    ".mcp/server.json",
+    "bin",
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "arm64",
+    "x64"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "code-intelligence",
+    "code-graph",
+    "dotnet"
+  ],
+  "license": "MIT",
+  "author": "AIDotNet",
+  "homepage": "https://github.com/AIDotNet/CodeGraph",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AIDotNet/CodeGraph.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AIDotNet/CodeGraph/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

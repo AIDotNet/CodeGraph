@@ -21,6 +21,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="OpenCowork.CodeGraph.Worker" />
+    <InternalsVisibleTo Include="OpenCowork.CodeGraph.Mcp" />
     <InternalsVisibleTo Include="OpenCowork.CodeGraph.Tests" />
   </ItemGroup>
   <ItemGroup>

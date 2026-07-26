@@ -1,0 +1,54 @@
+name: Publish NuGet MCP
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Validate package versions
+        shell: bash
+        run: |
+          package_version=$(dotnet msbuild OpenCowork.CodeGraph.Mcp/OpenCowork.CodeGraph.Mcp.csproj -getProperty:Version -nologo)
+          manifest_version=$(jq -r '.version' OpenCowork.CodeGraph.Mcp/.mcp/server.json)
+          manifest_package_version=$(jq -r '.packages[0].version' OpenCowork.CodeGraph.Mcp/.mcp/server.json)
+
+          test "$package_version" = "$manifest_version"
+          test "$package_version" = "$manifest_package_version"
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            release_version="${GITHUB_REF_NAME#v}"
+            test "$package_version" = "$release_version"
+          fi
+
+      - name: Restore, build, and test
+        run: |
+          dotnet restore CodeGraph.slnx
+          dotnet build CodeGraph.slnx -c Release --no-restore
+          dotnet test CodeGraph.slnx -c Release --no-build
+
+      - name: Pack MCP tool
+        run: dotnet pack OpenCowork.CodeGraph.Mcp/OpenCowork.CodeGraph.Mcp.csproj -c Release --no-build --no-restore
+
+      - name: Publish to NuGet.org
+        run: >-
+          dotnet nuget push artifacts/packages/OpenCowork.CodeGraph.Mcp.*.nupkg
+          --source https://api.nuget.org/v3/index.json
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --skip-duplicate

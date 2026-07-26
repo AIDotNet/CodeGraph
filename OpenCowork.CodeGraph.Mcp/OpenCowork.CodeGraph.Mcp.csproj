@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+
+    <!-- NuGet distribution: a framework-dependent .NET tool for dnx/global-tool
+         execution, plus the McpServer package type and registry manifest. Native AOT
+         publishing remains available independently through `dotnet publish -r ...`. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>opencowork-codegraph-mcp</ToolCommandName>
+    <PackageId>OpenCowork.CodeGraph.Mcp</PackageId>
+    <PackageType>McpServer</PackageType>
+    <Version>1.0.0</Version>
+    <Authors>AIDotNet</Authors>
+    <Description>Code intelligence MCP server for symbol search, call graphs, impact analysis, and source context.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/AIDotNet/CodeGraph</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/AIDotNet/CodeGraph.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>mcp;model-context-protocol;code-intelligence;code-graph;dotnet-tool</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)..\artifacts\packages</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenCowork.CodeGraph.Core\OpenCowork.CodeGraph.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
+    <PackageReference Include="ModelContextProtocol" Version="1.3.0" />
+    <!-- Runtime/native assets are required when installed from NuGet. Core binds
+         tree-sitter directly, so it intentionally has no compile-time dependency. -->
+    <PackageReference Include="TreeSitter.DotNet" Version="1.3.0" ExcludeAssets="compile" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include=".mcp\server.json" Pack="true" PackagePath="/.mcp/server.json" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="..\LICENSE" Pack="true" PackagePath="/" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenCowork.CodeGraph.Tests" />
+  </ItemGroup>
+</Project>
