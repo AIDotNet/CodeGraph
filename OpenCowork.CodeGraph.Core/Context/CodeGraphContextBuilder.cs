@@ -34,8 +34,9 @@ internal sealed class CodeGraphContextBuilder : ICodeGraphContextBuilder
     // imports/exports (near-zero information density).
     private static readonly string[] HighValueNodeKinds =
     {
-        CodeGraphNodeKind.Function, CodeGraphNodeKind.Method, CodeGraphNodeKind.Class,
-        CodeGraphNodeKind.Interface, CodeGraphNodeKind.TypeAlias, CodeGraphNodeKind.Struct,
+        CodeGraphNodeKind.Function, CodeGraphNodeKind.Method, CodeGraphNodeKind.Constructor,
+        CodeGraphNodeKind.Class, CodeGraphNodeKind.Interface, CodeGraphNodeKind.TypeAlias,
+        CodeGraphNodeKind.Struct,
         CodeGraphNodeKind.Trait, CodeGraphNodeKind.Component, CodeGraphNodeKind.Route,
         CodeGraphNodeKind.Variable, CodeGraphNodeKind.Constant, CodeGraphNodeKind.Enum,
         CodeGraphNodeKind.Module, CodeGraphNodeKind.Namespace
@@ -48,7 +49,8 @@ internal sealed class CodeGraphContextBuilder : ICodeGraphContextBuilder
         CodeGraphNodeKind.File, CodeGraphNodeKind.Module, CodeGraphNodeKind.Class,
         CodeGraphNodeKind.Struct, CodeGraphNodeKind.Interface, CodeGraphNodeKind.Trait,
         CodeGraphNodeKind.Protocol, CodeGraphNodeKind.Function, CodeGraphNodeKind.Method,
-        CodeGraphNodeKind.Property, CodeGraphNodeKind.Field, CodeGraphNodeKind.Variable,
+        CodeGraphNodeKind.Constructor, CodeGraphNodeKind.Property, CodeGraphNodeKind.Field,
+        CodeGraphNodeKind.Variable,
         CodeGraphNodeKind.Constant, CodeGraphNodeKind.Enum, CodeGraphNodeKind.EnumMember,
         CodeGraphNodeKind.TypeAlias, CodeGraphNodeKind.Namespace, CodeGraphNodeKind.Export,
         CodeGraphNodeKind.Route, CodeGraphNodeKind.Component
@@ -82,7 +84,7 @@ internal sealed class CodeGraphContextBuilder : ICodeGraphContextBuilder
     {
         CodeGraphNodeKind.Class or CodeGraphNodeKind.Interface or CodeGraphNodeKind.Struct
             or CodeGraphNodeKind.Trait or CodeGraphNodeKind.Protocol or CodeGraphNodeKind.Enum => 3,
-        CodeGraphNodeKind.Method or CodeGraphNodeKind.Function => 1,
+        CodeGraphNodeKind.Method or CodeGraphNodeKind.Constructor or CodeGraphNodeKind.Function => 1,
         _ => 0
     };
 
@@ -1198,7 +1200,7 @@ internal sealed class CodeGraphContextBuilder : ICodeGraphContextBuilder
         return result;
     }
 
-    // extractCodeBlocks (context/index.ts:1205): entry points, then functions/methods,
+    // extractCodeBlocks (context/index.ts:1205): entry points, then callable members,
     // then classes, up to maxBlocks.
     private List<CodeGraphCodeBlock> ExtractCodeBlocks(CodeGraphSubgraph subgraph, int maxBlocks, int maxBlockSize)
     {
@@ -1217,7 +1219,8 @@ internal sealed class CodeGraphContextBuilder : ICodeGraphContextBuilder
         foreach (var node in subgraph.Nodes.Values)
         {
             if (!rootSet.Contains(node.Id) &&
-                (node.Kind == CodeGraphNodeKind.Function || node.Kind == CodeGraphNodeKind.Method))
+                node.Kind is CodeGraphNodeKind.Function or CodeGraphNodeKind.Method
+                    or CodeGraphNodeKind.Constructor)
             {
                 priorityNodes.Add(node);
             }

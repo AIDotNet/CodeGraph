@@ -1028,7 +1028,8 @@ internal sealed partial class CodeGraphTreeSitterExtractor
     /// <summary>
     /// Record value-reference bookkeeping as nodes are created: file/class/module-scope
     /// const/var symbols with distinctive names become reference targets; function/
-    /// method/const/var symbols become reader scopes whose bodies FlushValueRefs scans.
+    /// method/constructor/const/var symbols become reader scopes whose bodies
+    /// FlushValueRefs scans.
     /// </summary>
     private void CaptureValueRefScope(string kind, string name, string id, CodeGraphTsNode node)
     {
@@ -1052,6 +1053,7 @@ internal sealed partial class CodeGraphTreeSitterExtractor
             }
         }
         if (kind is CodeGraphNodeKind.Function or CodeGraphNodeKind.Method
+            or CodeGraphNodeKind.Constructor
             or CodeGraphNodeKind.Constant or CodeGraphNodeKind.Variable)
             _valueRefScopes.Add((id, node, name));
     }

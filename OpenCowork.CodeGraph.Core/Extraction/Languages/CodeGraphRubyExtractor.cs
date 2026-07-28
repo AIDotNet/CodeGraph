@@ -30,6 +30,11 @@ internal static class CodeGraphRubyExtractor
         FunctionTypes = ["method"],
         ClassTypes = ["class"],
         MethodTypes = ["method", "singleton_method"],
+        ClassifyMethodNode = node =>
+        {
+            CodeGraphTsNode name = node.ChildByField("name");
+            return !name.IsNull && name.Text == "initialize" ? "constructor" : "method";
+        },
         InterfaceTypes = [], // Ruby uses modules (handled via VisitNode)
         StructTypes = [],
         EnumTypes = [],

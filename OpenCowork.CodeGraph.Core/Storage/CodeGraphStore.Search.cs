@@ -1101,6 +1101,7 @@ internal static class CodeGraphSearchScoring
     {
         CodeGraphNodeKind.Function => 10,
         CodeGraphNodeKind.Method => 10,
+        CodeGraphNodeKind.Constructor => 10,
         CodeGraphNodeKind.Class => 8,
         CodeGraphNodeKind.Interface => 9,
         CodeGraphNodeKind.TypeAlias => 6,

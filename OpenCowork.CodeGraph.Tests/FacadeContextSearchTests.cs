@@ -338,6 +338,7 @@ public sealed class CodeGraphContextRankingTests : IDisposable
 
         Assert.Equal(10, CodeGraphSearchScoring.KindBonus(CodeGraphNodeKind.Function));
         Assert.Equal(10, CodeGraphSearchScoring.KindBonus(CodeGraphNodeKind.Method));
+        Assert.Equal(10, CodeGraphSearchScoring.KindBonus(CodeGraphNodeKind.Constructor));
         Assert.Equal(8, CodeGraphSearchScoring.KindBonus(CodeGraphNodeKind.Class));
         Assert.Equal(0, CodeGraphSearchScoring.KindBonus(CodeGraphNodeKind.File));
     }

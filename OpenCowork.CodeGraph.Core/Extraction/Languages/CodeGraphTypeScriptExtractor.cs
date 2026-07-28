@@ -88,6 +88,13 @@ internal static class CodeGraphTypeScriptExtractor
     // PROPERTY. method_definition / accessors are always methods (#808).
     private static string ClassifyTsClassMember(CodeGraphTsNode node)
     {
+        if (node.Type == "method_definition")
+        {
+            CodeGraphTsNode name = node.ChildByField("name");
+            if (!name.IsNull && name.Text == "constructor") return "constructor";
+            return "method";
+        }
+
         if (node.Type != "public_field_definition" && node.Type != "field_definition")
             return "method";
 

@@ -19,6 +19,13 @@ internal static partial class CodeGraphSwiftExtractor
         FunctionTypes = ["function_declaration"],
         ClassTypes = ["class_declaration"],
         MethodTypes = ["function_declaration"], // Methods are functions inside classes
+        ClassifyMethodNode = node =>
+        {
+            CodeGraphTsNode name = node.ChildByField("name");
+            return !name.IsNull && name.Text.StartsWith("init", StringComparison.Ordinal)
+                ? "constructor"
+                : "method";
+        },
         InterfaceTypes = ["protocol_declaration"],
         StructTypes = ["struct_declaration"],
         EnumTypes = ["enum_declaration"],

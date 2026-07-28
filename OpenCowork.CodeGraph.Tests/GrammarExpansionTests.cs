@@ -218,4 +218,47 @@ public sealed class GrammarExpansionTests
         Assert.Equal(5, call.Line);
         Assert.Equal(CodeGraphLanguage.Razor, call.Language);
     }
+
+    // ----- C# constructor classification -----
+    private const string CsharpConstructorSource =
+        "namespace Demo;\n" +
+        "public sealed class Widget\n" +
+        "{\n" +
+        "    public Widget() { Initialize(); }\n" +
+        "    public Widget(string name) { Initialize(); }\n" +
+        "    private void Initialize() { }\n" +
+        "}\n";
+
+    [Fact]
+    public void CSharp_EmitsConstructorsSeparatelyFromMethods()
+    {
+        if (!Available(CodeGraphLanguage.CSharp)) return;
+
+        CodeGraphExtractionResult r = Extract(
+            CodeGraphLanguage.CSharp, "src/Widget.cs", CsharpConstructorSource);
+
+        CodeGraphNode widget = Assert.Single(
+            r.Nodes, n => n.Kind == CodeGraphNodeKind.Class && n.Name == "Widget");
+        List<CodeGraphNode> constructors = r.Nodes
+            .Where(n => n.Kind == CodeGraphNodeKind.Constructor && n.Name == "Widget")
+            .ToList();
+
+        Assert.Equal(2, constructors.Count);
+        Assert.DoesNotContain(
+            r.Nodes, n => n.Kind == CodeGraphNodeKind.Method && n.Name == "Widget");
+        Assert.Contains(
+            r.Nodes, n => n.Kind == CodeGraphNodeKind.Method && n.Name == "Initialize");
+        Assert.All(constructors, constructor => Assert.Contains(
+            r.Edges,
+            edge => edge.Kind == CodeGraphEdgeKind.Contains &&
+                edge.Source == widget.Id && edge.Target == constructor.Id));
+        List<CodeGraphUnresolvedReference> initializerCalls = r.UnresolvedReferences
+            .Where(reference => reference.ReferenceName == "Initialize")
+            .ToList();
+        Assert.Equal(2, initializerCalls.Count);
+        Assert.All(
+            initializerCalls,
+            reference => Assert.Contains(
+                constructors, constructor => constructor.Id == reference.FromNodeId));
+    }
 }

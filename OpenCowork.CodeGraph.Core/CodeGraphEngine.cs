@@ -30,7 +30,7 @@ internal sealed class CodeGraphEngine : IDisposable
     // (≙ extraction/extraction-version.ts EXTRACTION_VERSION). Bump in lockstep with
     // the extraction slice when its output changes; until it defines its own constant
     // this is the single source of truth for the freshness signal.
-    internal const int ExtractionVersion = 24;
+    internal const int ExtractionVersion = 25;
 
     // The package version stamped into indexed_with_version.
     internal const string EngineVersion = "0.0.1";

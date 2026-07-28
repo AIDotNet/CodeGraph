@@ -3,7 +3,7 @@
 // Each class exposes an `All` array that is the single source of truth the search
 // query parser validates against. Values are verbatim from CodeGraph types.ts.
 
-// NodeKind — 22 values (types.ts:18-41).
+// NodeKind — 23 values (types.ts:18-41 + C# constructor declarations).
 internal static class CodeGraphNodeKind
 {
     public const string File = "file";
@@ -15,6 +15,7 @@ internal static class CodeGraphNodeKind
     public const string Protocol = "protocol";
     public const string Function = "function";
     public const string Method = "method";
+    public const string Constructor = "constructor";
     public const string Property = "property";
     public const string Field = "field";
     public const string Variable = "variable";
@@ -32,8 +33,8 @@ internal static class CodeGraphNodeKind
     public static readonly string[] All =
     {
         File, Module, Class, Struct, Interface, Trait, Protocol, Function, Method,
-        Property, Field, Variable, Constant, Enum, EnumMember, TypeAlias, Namespace,
-        Parameter, Import, Export, Route, Component
+        Constructor, Property, Field, Variable, Constant, Enum, EnumMember, TypeAlias,
+        Namespace, Parameter, Import, Export, Route, Component
     };
 }
 

@@ -28,6 +28,8 @@ internal static class CodeGraphSolidityExtractor
             "constructor_definition",
             "fallback_receive_definition"
         ],
+        ClassifyMethodNode = node =>
+            node.Type == "constructor_definition" ? "constructor" : "method",
         InterfaceTypes = ["interface_declaration"],
         StructTypes = ["struct_declaration"],
         EnumTypes = ["enum_declaration"],

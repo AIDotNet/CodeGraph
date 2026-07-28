@@ -80,7 +80,11 @@ internal static class CodeGraphToolDefs
                     ["kind"] = new(
                         "string",
                         "Restrict to one node kind.",
-                        new[] { "function", "method", "class", "interface", "type", "variable", "route", "component" }),
+                        new[]
+                        {
+                            "function", "method", "constructor", "class", "interface",
+                            "type", "variable", "route", "component"
+                        }),
                     ["limit"] = new("number", "Max results (default 10)."),
                     ["projectPath"] = ProjectPath
                 },
@@ -97,6 +101,15 @@ internal static class CodeGraphToolDefs
                 {
                     ["symbol"] = new("string", "Symbol name to read (symbol mode)."),
                     ["file"] = new("string", "File path to read (file mode), or disambiguate a symbol."),
+                    ["kind"] = new(
+                        "string",
+                        "Optional node kind filter for same-named symbols (for example `constructor`).",
+                        new[]
+                        {
+                            "function", "method", "constructor", "class", "struct", "interface",
+                            "property", "field", "variable", "constant", "enum", "module", "namespace",
+                            "component", "route"
+                        }),
                     ["includeCode"] = new("boolean", "Include the symbol body in symbol mode (default false)."),
                     ["symbolsOnly"] = new("boolean", "Structural outline only (default false)."),
                     ["line"] = new("number", "Disambiguate a symbol by its start line."),

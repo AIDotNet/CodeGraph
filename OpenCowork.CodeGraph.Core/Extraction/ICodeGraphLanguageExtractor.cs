@@ -89,7 +89,7 @@ internal interface ICodeGraphLanguageExtractor
     Action<CodeGraphTsNode, CodeGraphExtractorContext>? SynthesizeMembers { get; }
     /// <summary>Classify a reused class node: class | struct | enum | interface | trait.</summary>
     Func<CodeGraphTsNode, string?>? ClassifyClassNode { get; }
-    /// <summary>Classify a reused method node: method | property. Default 'method'.</summary>
+    /// <summary>Classify a reused method node: method | constructor | property. Default 'method'.</summary>
     Func<CodeGraphTsNode, string?>? ClassifyMethodNode { get; }
     /// <summary>Resolve the body node when it is not a child field (Dart sibling body).
     /// (node, bodyField) -> body or null.</summary>

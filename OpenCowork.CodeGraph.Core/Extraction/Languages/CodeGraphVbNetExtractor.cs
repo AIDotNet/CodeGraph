@@ -29,6 +29,8 @@ internal static partial class CodeGraphVbNetExtractor
             "interface_method_declaration",   // interface members are distinct node types
             "abstract_method_declaration"     // `MustOverride Sub/Function ...`
         ],
+        ClassifyMethodNode = node =>
+            node.Type == "constructor_declaration" ? "constructor" : "method",
         InterfaceTypes = ["interface_declaration"],
         StructTypes = ["structure_declaration"],
         EnumTypes = ["enum_declaration"],
@@ -103,7 +105,7 @@ internal static partial class CodeGraphVbNetExtractor
         // constructors index as `<anonymous>`.
         if (node.Type == "constructor_declaration")
         {
-            CodeGraphNode? ctor = ctx.CreateNode(CodeGraphNodeKind.Method, "New", node);
+            CodeGraphNode? ctor = ctx.CreateNode(CodeGraphNodeKind.Constructor, "New", node);
             if (ctor != null)
             {
                 ctx.PushScope(ctor.Id);

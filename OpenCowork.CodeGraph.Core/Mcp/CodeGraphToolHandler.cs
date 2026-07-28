@@ -900,7 +900,8 @@ internal static partial class CodeGraphToolHandler
         CodeGraphEngine engine, string symbol, string? file, JsonElement args)
     {
         var line = JsonHelpers.GetIntNullable(args, "line");
-        var matches = ResolveSymbolNodes(engine, symbol, file, line);
+        var kind = JsonHelpers.GetString(args, "kind");
+        var matches = ResolveSymbolNodes(engine, symbol, file, line, kind);
         if (matches.Count == 0)
         {
             return new CodeGraphToolResult(true, $"No symbol named \"{symbol}\" found.", false);
@@ -909,7 +910,7 @@ internal static partial class CodeGraphToolHandler
         if (matches.Count > 1 && line is null && string.IsNullOrWhiteSpace(file))
         {
             var ambiguous = new StringBuilder();
-            ambiguous.AppendLine($"{matches.Count} definitions named \"{symbol}\" (pass `file` or `line` to disambiguate):");
+            ambiguous.AppendLine($"{matches.Count} definitions named \"{symbol}\" (pass `file`, `line`, or `kind` to disambiguate):");
             ambiguous.AppendLine();
             foreach (var n in matches)
             {
@@ -1012,9 +1013,15 @@ internal static partial class CodeGraphToolHandler
     // Symbol -> candidate defs, narrowed by an optional file substring then an optional
     // exact start line. Filters are only applied when they leave at least one match.
     private static List<CodeGraphNode> ResolveSymbolNodes(
-        CodeGraphEngine engine, string symbol, string? file, int? line)
+        CodeGraphEngine engine, string symbol, string? file, int? line, string? kind = null)
     {
         var nodes = engine.GetNodesByName(symbol);
+        if (!string.IsNullOrWhiteSpace(kind))
+        {
+            nodes = nodes
+                .Where(n => string.Equals(n.Kind, kind, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
         if (!string.IsNullOrWhiteSpace(file))
         {
             var f = CodeGraphPathSafety.NormalizePath(file);

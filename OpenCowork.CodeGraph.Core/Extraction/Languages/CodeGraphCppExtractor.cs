@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 // =============================================================================
 // CodeGraphCppExtractor — C++ language config. Port of the `cppExtractor` half of
 // extraction/languages/c-cpp.ts.
@@ -33,6 +35,7 @@ internal static class CodeGraphCppExtractor
         // class nodes that crowd out the single real definition.
         SkipBodilessClass = true,
         MethodTypes = ["function_definition"],
+        ClassifyMethodNode = ClassifyCppMethod,
         InterfaceTypes = [],
         StructTypes = ["struct_specifier"],
         EnumTypes = ["enum_specifier"],
@@ -89,6 +92,9 @@ internal static class CodeGraphCppExtractor
     // BEFORE the last `::` segment (`ns::Foo::bar` → `ns::Foo`). Null when unqualified.
     // (c-cpp.ts extractCppReceiverType.)
     private static string? ExtractCppReceiverType(CodeGraphTsNode node, CodeGraphSourceText source)
+        => ExtractCppReceiverTypeCore(node);
+
+    private static string? ExtractCppReceiverTypeCore(CodeGraphTsNode node)
     {
         CodeGraphTsNode declarator = node.ChildByField("declarator");
         if (declarator.IsNull) return null;
@@ -96,6 +102,45 @@ internal static class CodeGraphCppExtractor
         if (qid.IsNull) return null;
         string[] parts = qid.Text.Trim().Split("::", StringSplitOptions.RemoveEmptyEntries);
         return parts.Length > 1 ? string.Join("::", parts[..^1]) : null;
+    }
+
+    // C++ has no constructor-specific grammar node. A constructor is a member whose
+    // declared name equals its owning class (`Widget()` or `Widget::Widget()`).
+    private static string ClassifyCppMethod(CodeGraphTsNode node)
+    {
+        string? receiver = ExtractCppReceiverTypeCore(node);
+        if (receiver != null)
+        {
+            CodeGraphTsNode declarator = node.ChildByField("declarator");
+            CodeGraphTsNode qualifiedId = declarator.IsNull
+                ? default
+                : FindDeclaratorQualifiedId(declarator);
+            if (!qualifiedId.IsNull &&
+                LastQualifiedSegment(qualifiedId.Text) == LastQualifiedSegment(receiver))
+            {
+                return "constructor";
+            }
+        }
+
+        string? owner = receiver is null ? EnclosingCppTypeName(node) : LastQualifiedSegment(receiver);
+        if (string.IsNullOrEmpty(owner)) return "method";
+
+        string pattern = $@"(?:^|[\w:]){Regex.Escape(owner)}\s*(?:<[^(){{}};]*>)?\s*\(";
+        return Regex.IsMatch(node.Text, pattern, RegexOptions.CultureInvariant)
+            ? "constructor"
+            : "method";
+    }
+
+    private static string? EnclosingCppTypeName(CodeGraphTsNode node)
+    {
+        for (CodeGraphTsNode parent = node.Parent; !parent.IsNull; parent = parent.Parent)
+        {
+            if (parent.Type != "class_specifier") continue;
+            CodeGraphTsNode name = parent.ChildByField("name");
+            if (!name.IsNull) return LastQualifiedSegment(name.Text);
+        }
+
+        return null;
     }
 
     // BFS the declarator for the function NAME's `qualified_identifier`, NEVER

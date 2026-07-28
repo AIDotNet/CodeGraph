@@ -25,7 +25,9 @@ internal static partial class CodeGraphKotlinExtractor
     {
         FunctionTypes = ["function_declaration"],
         ClassTypes = ["class_declaration"],
-        MethodTypes = ["function_declaration"], // Methods are functions inside classes
+        MethodTypes = ["function_declaration", "secondary_constructor"],
+        ClassifyMethodNode = node =>
+            node.Type == "secondary_constructor" ? "constructor" : "method",
         InterfaceTypes = [], // Handled via ClassifyClassNode
         StructTypes = [], // Kotlin uses data classes
         EnumTypes = [], // Handled via ClassifyClassNode
@@ -42,6 +44,8 @@ internal static partial class CodeGraphKotlinExtractor
         ReturnField = "type",
         GetReturnType = ExtractKotlinReturnType,
         VisitNode = VisitKotlinNode,
+        ResolveName = (node, source) =>
+            node.Type == "secondary_constructor" ? KotlinEnclosingTypeName(node) : null,
 
         ResolveBody = (node, _bodyField) =>
         {
@@ -58,6 +62,8 @@ internal static partial class CodeGraphKotlinExtractor
                     if (!firstChild.IsNull && firstChild.Type == "{") return child;
                 }
                 if (!child.IsNull && child.Type is "function_body" or "class_body" or "enum_class_body")
+                    return child;
+                if (!child.IsNull && node.Type == "secondary_constructor" && child.Type == "statements")
                     return child;
             }
             return null;
@@ -328,6 +334,18 @@ internal static partial class CodeGraphKotlinExtractor
                 return name;
             }
         }
+        return null;
+    }
+
+    private static string? KotlinEnclosingTypeName(CodeGraphTsNode node)
+    {
+        for (CodeGraphTsNode parent = node.Parent; !parent.IsNull; parent = parent.Parent)
+        {
+            if (parent.Type != "class_declaration") continue;
+            CodeGraphTsNode name = FirstNamedChildOfType(parent, "type_identifier");
+            if (!name.IsNull) return name.Text;
+        }
+
         return null;
     }
 

@@ -189,7 +189,13 @@ internal sealed partial class CodeGraphTreeSitterExtractor
 
         if (_functionTypes.Contains(nodeType))
         {
-            if (IsInsideClassLikeNode() && _methodTypes.Contains(nodeType)) ExtractMethod(node);
+            if (IsInsideClassLikeNode() && _methodTypes.Contains(nodeType))
+            {
+                string kind = _extractor.ClassifyMethodNode?.Invoke(node) == "constructor"
+                    ? CodeGraphNodeKind.Constructor
+                    : CodeGraphNodeKind.Method;
+                ExtractMethod(node, kind);
+            }
             else ExtractFunction(node);
             skipChildren = true;
         }
@@ -212,7 +218,8 @@ internal sealed partial class CodeGraphTreeSitterExtractor
         }
         else if (_methodTypes.Contains(nodeType))
         {
-            if (_extractor.ClassifyMethodNode?.Invoke(node) == "property")
+            string? methodKind = _extractor.ClassifyMethodNode?.Invoke(node);
+            if (methodKind == "property")
             {
                 CodeGraphNode? propNode = ExtractProperty(node);
                 CodeGraphTsNode valueNode = node.ChildByField("value");
@@ -228,7 +235,11 @@ internal sealed partial class CodeGraphTreeSitterExtractor
             }
             else
             {
-                ExtractMethod(node);
+                ExtractMethod(
+                    node,
+                    methodKind == "constructor"
+                        ? CodeGraphNodeKind.Constructor
+                        : CodeGraphNodeKind.Method);
                 skipChildren = true;
             }
         }
@@ -286,7 +297,8 @@ internal sealed partial class CodeGraphTreeSitterExtractor
         // Sibling-body grammars (Dart) put the body beyond the signature node's
         // range — extend endLine to the resolved body so the node spans it.
         int endLine = (int)node.EndPoint.Row + 1;
-        if (kind == CodeGraphNodeKind.Function || kind == CodeGraphNodeKind.Method)
+        if (kind is CodeGraphNodeKind.Function or CodeGraphNodeKind.Method
+            or CodeGraphNodeKind.Constructor)
         {
             CodeGraphTsNode? body = _extractor.ResolveBody?.Invoke(node, _extractor.BodyField);
             if (body is { } b && !b.IsNull)
@@ -423,7 +435,10 @@ internal sealed partial class CodeGraphTreeSitterExtractor
         if (nameOverride == null && _extractor.GetReceiverType != null &&
             !string.IsNullOrEmpty(_extractor.GetReceiverType(node, _source)))
         {
-            ExtractMethod(node);
+            string kind = _extractor.ClassifyMethodNode?.Invoke(node) == "constructor"
+                ? CodeGraphNodeKind.Constructor
+                : CodeGraphNodeKind.Method;
+            ExtractMethod(node, kind);
             return;
         }
 
@@ -472,7 +487,7 @@ internal sealed partial class CodeGraphTreeSitterExtractor
         _nodeStack.RemoveAt(_nodeStack.Count - 1);
     }
 
-    private void ExtractMethod(CodeGraphTsNode node)
+    private void ExtractMethod(CodeGraphTsNode node, string kind = CodeGraphNodeKind.Method)
     {
         string? receiverType = _extractor.GetReceiverType?.Invoke(node, _source);
         bool hasReceiver = !string.IsNullOrEmpty(receiverType);
@@ -500,7 +515,7 @@ internal sealed partial class CodeGraphTreeSitterExtractor
             return;
         }
 
-        CodeGraphNode? methodNode = CreateNode(CodeGraphNodeKind.Method, name, node, new CodeGraphNodeExtra
+        CodeGraphNode? methodNode = CreateNode(kind, name, node, new CodeGraphNodeExtra
         {
             Docstring = CodeGraphTreeSitterHelpers.GetPrecedingDocstring(node),
             Signature = _extractor.GetSignature?.Invoke(node, _source),

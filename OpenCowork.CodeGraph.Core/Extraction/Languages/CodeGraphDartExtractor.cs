@@ -9,8 +9,9 @@ using System.Text.RegularExpressions;
 // signature (ResolveBody). class/mixin/extension all extract as class-like
 // (ExtraClassNodeTypes). Named/factory constructors are named by their ctor name
 // (ResolveName) and given the class as their return type (GetReturnType) so
-// `Foo.create().bar()` chains resolve (#750); the UNNAMED ctor `Foo()` is skipped
-// (IsMisparsedFunction) so it doesn't hijack instantiation. Dart calls are
+// `Foo.create().bar()` chains resolve (#750). Unnamed constructors are emitted as
+// `constructor` nodes too; constructor kinds stay out of ordinary method resolution.
+// Dart calls are
 // identifier+selector, not a call node, so they are lifted via ExtractBareCall.
 // `static_final_declaration` (top-level/static const/final) → constant (VisitNode).
 // =============================================================================
@@ -23,6 +24,7 @@ internal static partial class CodeGraphDartExtractor
         // named constructor `Foo._()` parses as a bare constructor_signature.
         ClassTypes = ["class_definition"],
         MethodTypes = ["method_signature", "constructor_signature"],
+        ClassifyMethodNode = node => DartCtorInfo(node) != null ? "constructor" : "method",
         InterfaceTypes = [],
         StructTypes = [],
         EnumTypes = ["enum_declaration"],
@@ -79,13 +81,6 @@ internal static partial class CodeGraphDartExtractor
                 if (child.Type is "class_body" or "extension_body") return child;
             }
             return null;
-        },
-
-        IsMisparsedFunction = (_name, node) =>
-        {
-            // Skip the UNNAMED constructor `Foo()` (its ctor name equals the class).
-            (string ClassName, string CtorName)? ctor = DartCtorInfo(node);
-            return ctor != null && ctor.Value.CtorName == ctor.Value.ClassName;
         },
 
         GetSignature = (node, source) =>

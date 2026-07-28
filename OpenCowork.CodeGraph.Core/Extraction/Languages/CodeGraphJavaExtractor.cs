@@ -19,6 +19,8 @@ internal static partial class CodeGraphJavaExtractor
         FunctionTypes = [],
         ClassTypes = ["class_declaration"],
         MethodTypes = ["method_declaration", "constructor_declaration"],
+        ClassifyMethodNode = node =>
+            node.Type == "constructor_declaration" ? "constructor" : "method",
         InterfaceTypes = ["interface_declaration", "annotation_type_declaration"],
         StructTypes = [],
         EnumTypes = ["enum_declaration"],

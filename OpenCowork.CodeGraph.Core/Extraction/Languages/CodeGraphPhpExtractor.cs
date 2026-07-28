@@ -34,6 +34,13 @@ internal static class CodeGraphPhpExtractor
         FunctionTypes = ["function_definition"],
         ClassTypes = ["class_declaration", "trait_declaration"],
         MethodTypes = ["method_declaration"],
+        ClassifyMethodNode = node =>
+        {
+            CodeGraphTsNode name = node.ChildByField("name");
+            return !name.IsNull && name.Text.Equals("__construct", StringComparison.OrdinalIgnoreCase)
+                ? "constructor"
+                : "method";
+        },
         InterfaceTypes = ["interface_declaration"],
         StructTypes = [],
         EnumTypes = ["enum_declaration"],

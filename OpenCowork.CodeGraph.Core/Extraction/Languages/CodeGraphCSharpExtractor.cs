@@ -20,6 +20,8 @@ internal static partial class CodeGraphCSharpExtractor
         FunctionTypes = [],
         ClassTypes = ["class_declaration", "record_declaration"],
         MethodTypes = ["method_declaration", "constructor_declaration"],
+        ClassifyMethodNode = node =>
+            node.Type == "constructor_declaration" ? "constructor" : "method",
         InterfaceTypes = ["interface_declaration"],
         StructTypes = ["struct_declaration", "record_struct_declaration"],
         ClassifyClassNode = node =>
