@@ -78,7 +78,8 @@ internal sealed partial class CodeGraphStore
 
         // Final fuzzy fallback: only when both FTS and LIKE returned nothing AND the
         // text is long enough to be worth fuzzing (1-2 char queries match too much).
-        if (results.Count == 0 && text.Length >= 3)
+        // Skipped for CJK text — it edit-distance-compares against ASCII symbol names.
+        if (results.Count == 0 && text.Length >= 3 && !CodeGraphIdentifierSegments.ContainsCjk(text))
         {
             results = SearchNodesFuzzy(text, kinds, languages, limit);
         }
@@ -362,14 +363,30 @@ internal sealed partial class CodeGraphStore
         int limit,
         int offset)
     {
+        // CJK text lives in docstrings (symbol names are ASCII), and FTS5's unicode61
+        // tokenizer keeps a whole CJK sentence as ONE token — LIKE over docstring is
+        // the only net that catches it. CJK-gated so ASCII query behavior is unchanged.
+        var searchDocstring = CodeGraphIdentifierSegments.ContainsCjk(query);
+
         var sql = new StringBuilder();
         sql.Append("SELECT nodes.*, CASE ");
         sql.Append("WHEN name = $exact THEN 1.0 ");
         sql.Append("WHEN name LIKE $startsWith THEN 0.9 ");
         sql.Append("WHEN name LIKE $contains THEN 0.8 ");
         sql.Append("WHEN qualified_name LIKE $contains THEN 0.7 ");
+        if (searchDocstring)
+        {
+            sql.Append("WHEN docstring LIKE $contains THEN 0.6 ");
+        }
+
         sql.Append("ELSE 0.5 END as score FROM nodes ");
-        sql.Append("WHERE (name LIKE $contains OR qualified_name LIKE $contains OR name LIKE $startsWith)");
+        sql.Append("WHERE (name LIKE $contains OR qualified_name LIKE $contains OR name LIKE $startsWith");
+        if (searchDocstring)
+        {
+            sql.Append(" OR docstring LIKE $contains");
+        }
+
+        sql.Append(')');
 
         using var command = connection.CreateCommand();
         command.Parameters.AddWithValue("$exact", query);
@@ -576,11 +593,17 @@ internal static class CodeGraphSearchScoring
         "fixture", "fixtures", "benchmark", "benchmarks", "demo", "demos"
     };
 
+    // JS \b is ASCII-only; .NET \b is Unicode-aware (CJK chars are word chars), so a
+    // verbatim port silently stops matching identifiers glued to CJK prose
+    // ("分析OrderStateMachine的实现"). These lookarounds restore the JS semantics.
+    internal const string AsciiWordBefore = @"(?<![A-Za-z0-9_])";
+    internal const string AsciiWordAfter = @"(?![A-Za-z0-9_])";
+
     private static readonly Regex CompoundIdentifier =
-        new(@"\b([a-zA-Z][a-zA-Z0-9]*(?:[A-Z][a-z]+)+|[A-Z][a-z]+(?:[A-Z][a-z]*)+)\b");
+        new(AsciiWordBefore + @"([a-zA-Z][a-zA-Z0-9]*(?:[A-Z][a-z]+)+|[A-Z][a-z]+(?:[A-Z][a-z]*)+)" + AsciiWordAfter);
 
     private static readonly Regex SnakeIdentifier =
-        new(@"\b([a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+)\b");
+        new(AsciiWordBefore + @"([a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+)" + AsciiWordAfter);
 
     private static readonly Regex CamelBoundaryLower = new("([a-z])([A-Z])");
     private static readonly Regex CamelBoundaryAcronym = new("([A-Z]+)([A-Z][a-z])");
@@ -734,7 +757,8 @@ internal static class CodeGraphSearchScoring
     // special chars; each surviving term becomes a prefix match ("term"*), OR-joined.
     public static string BuildFtsMatchQuery(string query)
     {
-        var cleaned = FtsSpecialChars.Replace(query.Replace("::", " "), string.Empty);
+        var cleaned = FtsSpecialChars.Replace(
+            SeparateCjkRuns(query).Replace("::", " "), string.Empty);
         var parts = new List<string>();
         foreach (var term in cleaned.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
         {
@@ -747,6 +771,38 @@ internal static class CodeGraphSearchScoring
         }
 
         return string.Join(" OR ", parts);
+    }
+
+    // Whitespace at CJK↔ASCII-alphanumeric joins: CJK prose has no separators, so an
+    // embedded identifier ("分析OrderStateMachine的实现") would otherwise stay glued
+    // into one whitespace token and never prefix-match. Only letter/digit joins are
+    // split — punctuation is left for the FTS cleaner.
+    private static string SeparateCjkRuns(string s)
+    {
+        if (!CodeGraphIdentifierSegments.ContainsCjk(s))
+        {
+            return s;
+        }
+
+        var sb = new StringBuilder(s.Length + 8);
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (i > 0 && IsCjkAsciiJoin(s[i - 1], s[i]))
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(s[i]);
+        }
+
+        return sb.ToString();
+
+        static bool IsCjkAsciiJoin(char a, char b) =>
+            (CodeGraphIdentifierSegments.IsCjk(a) && IsAsciiAlphaNum(b)) ||
+            (IsAsciiAlphaNum(a) && CodeGraphIdentifierSegments.IsCjk(b));
+
+        static bool IsAsciiAlphaNum(char c) =>
+            c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9';
     }
 
     // ---------------------------------------------------------------------------
@@ -824,6 +880,13 @@ internal static class CodeGraphSearchScoring
             }
 
             Add(lower);
+        }
+
+        // CJK content words — unsegmented scripts never reach the ASCII paths above
+        // (no \b to split on); served downstream by the CJK-aware LIKE fallback.
+        foreach (var cjkTerm in ExtractCjkTerms(query))
+        {
+            Add(cjkTerm);
         }
 
         // Stem variants for broader FTS matching (caching -> cache, eviction -> evict).
@@ -926,6 +989,73 @@ internal static class CodeGraphSearchScoring
         }
 
         return variants.Where(v => v.Length >= 3 && v != t).ToList();
+    }
+
+    // ---------------------------------------------------------------------------
+    // CJK term extraction — unsegmented scripts have no word boundaries to split on
+    // ---------------------------------------------------------------------------
+
+    // Contiguous CJK runs (kept in sync with CodeGraphIdentifierSegments.IsCjk).
+    private static readonly Regex CjkRunRegex =
+        new(@"[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\u3040-\u30FF\uAC00-\uD7AF]+");
+
+    // Function words / meta-instruction verbs that separate content words in Chinese
+    // prompts ("如何实现订单支付" -> "订单支付"). Splitting on them approximates
+    // segmentation without a dictionary; longer alternatives sort before their
+    // substrings ("为什么" before "什么"). Domain verbs (查询/处理/支持) stay OUT —
+    // they legitimately appear in docstrings.
+    private static readonly Regex CjkStopwordSplit = new(
+        "如何|怎么|怎样|哪里|哪儿|为什么|为啥|什么|是否|能否|可以|请问|帮我|一下|" +
+        "这个|那个|这些|那些|以及|关于|然后|如果|但是|因为|所以|就是|还是|或者|" +
+        "并且|而且|需要|想要|实现|介绍|解释|说明|分析|梳理|优化|修复|" +
+        "[的了吗呢呀啊嘛吧]");
+
+    /// <summary>
+    /// CJK content-word terms from a query. Each CJK run is split on function words
+    /// (the only separators unsegmented text has); each surviving piece yields itself
+    /// plus its sliding bigrams — dictionary-free recall for reordered compounds
+    /// ("订单支付" also finds a docstring saying "支付订单").
+    /// </summary>
+    public static List<string> ExtractCjkTerms(string query, int maxTerms = 16)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrEmpty(query))
+        {
+            return result;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        void Add(string t)
+        {
+            if (result.Count < maxTerms && seen.Add(t))
+            {
+                result.Add(t);
+            }
+        }
+
+        foreach (Match run in CjkRunRegex.Matches(query))
+        {
+            if (result.Count >= maxTerms)
+            {
+                break;
+            }
+
+            foreach (var piece in CjkStopwordSplit.Split(run.Value))
+            {
+                if (piece.Length < 2)
+                {
+                    continue; // single chars match everything
+                }
+
+                Add(piece);
+                for (var i = 0; piece.Length >= 3 && i + 2 <= piece.Length; i++)
+                {
+                    Add(piece.Substring(i, 2));
+                }
+            }
+        }
+
+        return result;
     }
 
     // ---------------------------------------------------------------------------

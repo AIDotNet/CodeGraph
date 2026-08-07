@@ -135,33 +135,51 @@ internal static partial class CodeGraphIdentifierSegments
                 break;
             }
 
-            // Gate on the RAW run length first — an unsegmented-script sentence is one
-            // giant run and normalizing it buys nothing (matches TS: length check
-            // before normalize).
-            if (run.Value.Length > MaxProseChars)
+            // CJK↔Latin boundaries split first: unsegmented prose glues onto embedded
+            // identifiers ("修复OrderStateMachine的bug" is ONE [\p{L}\p{N}]+ run),
+            // which used to drop the identifier together with the over-long run.
+            foreach (var piece in SplitByScriptBoundary(run.Value))
             {
-                continue;
-            }
+                if (seen.Count >= MaxProseCandidates)
+                {
+                    break;
+                }
 
-            var w = NormalizeProseWord(run.Value);
-            if (w.Length < MinProseChars || w.Length > MaxProseChars)
-            {
-                continue;
-            }
+                // The segment vocabulary is ASCII-identifier-derived; a CJK piece can
+                // never match it.
+                if (ContainsCjk(piece))
+                {
+                    continue;
+                }
 
-            if (DigitsOnlyRegex().IsMatch(w))
-            {
-                continue;
-            }
+                // Gate on the RAW piece length first — an unsegmented-script sentence
+                // is one giant run and normalizing it buys nothing (matches TS: length
+                // check before normalize).
+                if (piece.Length > MaxProseChars)
+                {
+                    continue;
+                }
 
-            if (EnglishProseStopwords.Contains(w))
-            {
-                continue;
-            }
+                var w = NormalizeProseWord(piece);
+                if (w.Length < MinProseChars || w.Length > MaxProseChars)
+                {
+                    continue;
+                }
 
-            if (seen.Add(w))
-            {
-                result.Add(w);
+                if (DigitsOnlyRegex().IsMatch(w))
+                {
+                    continue;
+                }
+
+                if (EnglishProseStopwords.Contains(w))
+                {
+                    continue;
+                }
+
+                if (seen.Add(w))
+                {
+                    result.Add(w);
+                }
             }
         }
 
@@ -226,6 +244,53 @@ internal static partial class CodeGraphIdentifierSegments
     // Runs of Unicode letters/numbers (identifier-segments.ts:33,117).
     [GeneratedRegex(@"[\p{L}\p{N}]+")]
     private static partial Regex AlphanumericRunRegex();
+
+    /// <summary>Han / Kana / Hangul — scripts written without word separators.</summary>
+    internal static bool IsCjk(char c) =>
+        (c >= '\u4E00' && c <= '\u9FFF') || // CJK Unified Ideographs
+        (c >= '\u3400' && c <= '\u4DBF') || // CJK Extension A
+        (c >= '\uF900' && c <= '\uFAFF') || // CJK Compatibility Ideographs
+        (c >= '\u3040' && c <= '\u30FF') || // Hiragana + Katakana
+        (c >= '\uAC00' && c <= '\uD7AF');   // Hangul Syllables
+
+    internal static bool ContainsCjk(string s)
+    {
+        foreach (var c in s)
+        {
+            if (IsCjk(c))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Split one letter/digit run at CJK↔non-CJK transitions. CJK prose has no word
+    /// separators, so an embedded Latin identifier is glued into the same run
+    /// ("修复OrderStateMachine的bug"); a run with no CJK returns itself unsplit.
+    /// </summary>
+    internal static List<string> SplitByScriptBoundary(string run)
+    {
+        if (!ContainsCjk(run))
+        {
+            return new List<string> { run };
+        }
+
+        var pieces = new List<string>();
+        var start = 0;
+        for (var i = 1; i <= run.Length; i++)
+        {
+            if (i == run.Length || IsCjk(run[i]) != IsCjk(run[start]))
+            {
+                pieces.Add(run[start..i]);
+                start = i;
+            }
+        }
+
+        return pieces;
+    }
 
     // Split before an Upper following lower/digit (camelCase hump), and before the
     // last Upper of an acronym run when a lowercase follows ("HTMLParser" → HTML |

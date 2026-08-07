@@ -437,3 +437,135 @@ public sealed class CodeGraphIdentifierSegmentTests : IDisposable
         Assert.True(store.IsNameSegmentVocabEmpty());
     }
 }
+
+// -----------------------------------------------------------------------------
+// (d) CJK retrieval. Chinese prompts broke on FOUR stacked failures: .NET's
+// Unicode-aware \b never fires between a CJK char and an identifier (the JS
+// original's ASCII \b does — a port regression); FTS5's unicode61 keeps a whole
+// CJK sentence as ONE token; the LIKE fallback skipped docstring (where CJK text
+// actually lives); and prose-candidate extraction dropped a glued CJK+Latin run
+// wholesale. These pin the repairs end-to-end: term/symbol extraction, the
+// prompt-hook prose path, FTS mixed-script matching, and the CJK LIKE net.
+// -----------------------------------------------------------------------------
+public sealed class CodeGraphCjkSearchTests : IDisposable
+{
+    private readonly CodeGraphStore store;
+    private readonly string directory;
+
+    public CodeGraphCjkSearchTests()
+    {
+        store = CodeGraphTestSupport.OpenTempStore(out directory);
+    }
+
+    public void Dispose()
+    {
+        store.Dispose();
+        CodeGraphTestSupport.DeleteDir(directory);
+    }
+
+    // The port-regression pin: identifiers glued to CJK prose (no spaces — the
+    // normal Chinese typing convention) must still be extracted, as in the JS
+    // original where ASCII \b fires at the script join.
+    [Fact]
+    public void ExtractSearchTerms_ExtractsIdentifierGluedToCjkProse()
+    {
+        var terms = CodeGraphSearchScoring.ExtractSearchTerms("分析OrderStateMachine的实现");
+
+        Assert.Contains("orderstatemachine", terms); // compound kept whole
+        Assert.Contains("order", terms);             // and split into humps
+        Assert.Contains("state", terms);
+        Assert.Contains("machine", terms);
+
+        var snake = CodeGraphSearchScoring.ExtractSearchTerms("修复process_payment的报错");
+        Assert.Contains("process_payment", snake);
+    }
+
+    // CJK content words: function words split the run (the only separators
+    // unsegmented text has), bigrams give dictionary-free recall.
+    [Fact]
+    public void ExtractCjkTerms_SplitsOnFunctionWordsAndEmitsBigrams()
+    {
+        var terms = CodeGraphSearchScoring.ExtractCjkTerms("如何实现订单支付回调");
+
+        Assert.Contains("订单支付回调", terms); // whole content piece
+        Assert.Contains("订单", terms);         // sliding bigrams
+        Assert.Contains("支付", terms);
+        Assert.Contains("回调", terms);
+        Assert.DoesNotContain("如何", terms);   // question word split away
+        Assert.DoesNotContain("实现", terms);   // meta-instruction verb split away
+
+        // ASCII-only queries are untouched by the CJK path.
+        Assert.Empty(CodeGraphSearchScoring.ExtractCjkTerms("processPayment retry logic"));
+    }
+
+    // Prompt-hook prose path: the glued run is split at the script boundary, so the
+    // embedded identifier reaches the segment vocabulary instead of being dropped
+    // with the over-long run; the CJK pieces themselves stay out (the vocab is
+    // ASCII-identifier-derived).
+    [Fact]
+    public void ExtractProseCandidates_RecoversIdentifierInsideCjkRun()
+    {
+        var words = CodeGraphIdentifierSegments.ExtractProseCandidates("修复OrderStateMachine的bug没有生效");
+
+        Assert.Contains("orderstatemachine", words);
+        Assert.DoesNotContain(words, w => w.Any(CodeGraphIdentifierSegments.IsCjk));
+    }
+
+    // Mixed-script query end-to-end through SearchNodes: BuildFtsMatchQuery now
+    // separates the glued identifier, so plain FTS prefix matching finds the symbol.
+    [Fact]
+    public void SearchNodes_MixedScriptQueryFindsSymbolViaFts()
+    {
+        store.InsertNode(CodeGraphTestSupport.MakeNode(
+            "cls:osm", "OrderStateMachine", CodeGraphNodeKind.Class, "src/order/state-machine.ts", 1));
+
+        var results = store.SearchNodes("分析OrderStateMachine的实现");
+
+        Assert.Contains(results, r => r.Node.Name == "OrderStateMachine");
+    }
+
+    // Pure-CJK query end-to-end: symbol names are ASCII so FTS finds nothing; the
+    // LIKE fallback must reach the docstring (where the CJK text lives) — and must
+    // NOT reach it for ASCII queries (unchanged ranking behavior).
+    [Fact]
+    public void SearchNodes_PureCjkQueryFindsDocstringViaLikeFallback()
+    {
+        store.InsertNode(CodeGraphTestSupport.MakeNode(
+            "fn:refund", "processRefund", CodeGraphNodeKind.Function, "src/payment/refund.ts", 1)
+            with
+        { Docstring = "处理订单退款回调,校验签名后更新订单状态" });
+        store.InsertNode(CodeGraphTestSupport.MakeNode(
+            "fn:other", "renderChart", CodeGraphNodeKind.Function, "src/chart.ts", 1)
+            with
+        { Docstring = "绘制图表" });
+
+        var results = store.SearchNodes("订单退款");
+
+        Assert.Single(results, r => r.Node.Name == "processRefund");
+        Assert.DoesNotContain(results, r => r.Node.Name == "renderChart");
+
+        // The docstring net is CJK-gated: FTS already serves whole-word ASCII
+        // docstring hits, so gate honesty needs an INFIX — "anzibar" prefix-matches
+        // no token, and the ASCII LIKE fallback must not fish it out of docstring.
+        store.InsertNode(CodeGraphTestSupport.MakeNode(
+            "fn:eng", "handleWebhook", CodeGraphNodeKind.Function, "src/hook.ts", 1)
+            with
+        { Docstring = "verifies zanzibar signatures" });
+        Assert.DoesNotContain(store.SearchNodes("anzibar"), r => r.Node.Name == "handleWebhook");
+    }
+
+    // The explore pipeline's symbol channel (ExtractSymbolsFromQuery's six \b
+    // regexes) exercised through its shipping entry: a glued mixed-script query
+    // must root the subgraph at the named symbol.
+    [Fact]
+    public async Task FindRelevantContext_MixedScriptQueryFindsSymbol()
+    {
+        store.InsertNode(CodeGraphTestSupport.MakeNode(
+            "cls:osm", "OrderStateMachine", CodeGraphNodeKind.Class, "src/order/state-machine.ts", 1));
+
+        var builder = new CodeGraphContextBuilder(store, directory, new CodeGraphTraverser(store));
+        var subgraph = await builder.FindRelevantContext("分析OrderStateMachine的实现");
+
+        Assert.Contains(subgraph.Nodes.Values, n => n.Name == "OrderStateMachine");
+    }
+}

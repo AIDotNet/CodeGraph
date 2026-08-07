@@ -88,22 +88,30 @@ internal sealed class CodeGraphContextBuilder : ICodeGraphContextBuilder
         _ => 0
     };
 
-    // extractSymbolsFromQuery regexes (context/index.ts:44) — reproduced verbatim.
+    // extractSymbolsFromQuery regexes (context/index.ts:44). Not verbatim: JS \b is
+    // ASCII-only while .NET \b is Unicode-aware (CJK chars are word chars), so the
+    // literal port matched nothing when an identifier touches CJK prose
+    // ("分析OrderStateMachine的实现"). The ASCII lookarounds restore JS semantics.
+    private const string AsciiWordBefore = CodeGraphSearchScoring.AsciiWordBefore;
+    private const string AsciiWordAfter = CodeGraphSearchScoring.AsciiWordAfter;
+
     private static readonly Regex CamelCasePattern =
-        new(@"\b([A-Z][a-z]+(?:[A-Z][a-z]*)*|[a-z]+(?:[A-Z][a-z]*)+)\b");
+        new(AsciiWordBefore + @"([A-Z][a-z]+(?:[A-Z][a-z]*)*|[a-z]+(?:[A-Z][a-z]*)+)" + AsciiWordAfter);
 
     private static readonly Regex SnakeCasePattern =
-        new(@"\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b", RegexOptions.IgnoreCase);
+        new(AsciiWordBefore + @"([a-z][a-z0-9]*(?:_[a-z0-9]+)+)" + AsciiWordAfter, RegexOptions.IgnoreCase);
 
     private static readonly Regex ScreamingSnakePattern =
-        new(@"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b");
+        new(AsciiWordBefore + @"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)" + AsciiWordAfter);
 
-    private static readonly Regex AcronymPattern = new(@"\b([A-Z]{2,})\b");
+    private static readonly Regex AcronymPattern =
+        new(AsciiWordBefore + @"([A-Z]{2,})" + AsciiWordAfter);
 
     private static readonly Regex DotNotationPattern =
-        new(@"\b([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)\b");
+        new(AsciiWordBefore + @"([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)" + AsciiWordAfter);
 
-    private static readonly Regex LowercasePattern = new(@"\b([a-z][a-z0-9]{2,})\b");
+    private static readonly Regex LowercasePattern =
+        new(AsciiWordBefore + @"([a-z][a-z0-9]{2,})" + AsciiWordAfter);
 
     // Common English words filtered from extracted symbols (context/index.ts:105) —
     // verbatim, compared case-insensitively.
