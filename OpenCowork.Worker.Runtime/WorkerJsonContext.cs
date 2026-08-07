@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 [JsonSerializable(typeof(ErrorResult))]
 [JsonSerializable(typeof(StatusResult))]
 [JsonSerializable(typeof(WorkerRoutesResult))]
+[JsonSerializable(typeof(WorkerHelloResult))]
 [JsonSerializable(typeof(SystemMemorySnapshot))]
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(List<string>), TypeInfoPropertyName = "ListString")]

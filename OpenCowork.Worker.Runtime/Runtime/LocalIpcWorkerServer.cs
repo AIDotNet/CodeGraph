@@ -180,6 +180,37 @@ internal sealed class LocalIpcWorkerServer
                     continue;
                 }
 
+                // Liveness probes answer from the read loop, bypassing dispatch slots:
+                // a worker saturated by long-running requests must still prove it is
+                // alive, otherwise the supervisor's heartbeat misdiagnoses load as death.
+                if (string.Equals(request.Method, "worker/ping", StringComparison.Ordinal))
+                {
+                    var pingResponse = MessagePackFrameProtocol.EncodeResponse(
+                        WorkerResponse.Json(
+                            new StatusResult(true, Environment.ProcessId),
+                            WorkerJsonContext.Default.StatusResult),
+                        request.Id);
+                    request.Dispose();
+                    await WritePayloadAsync(stream, writeLock, pingResponse, clientCts.Token);
+                    continue;
+                }
+
+                if (string.Equals(request.Method, "worker/hello", StringComparison.Ordinal))
+                {
+                    var helloResponse = MessagePackFrameProtocol.EncodeResponse(
+                        WorkerResponse.Json(
+                            new WorkerHelloResult(
+                                true,
+                                Environment.ProcessId,
+                                WorkerProtocol.Version,
+                                Environment.GetEnvironmentVariable("OPEN_COWORK_APP_VERSION")),
+                            WorkerJsonContext.Default.WorkerHelloResult),
+                        request.Id);
+                    request.Dispose();
+                    await WritePayloadAsync(stream, writeLock, helloResponse, clientCts.Token);
+                    continue;
+                }
+
                 if (Interlocked.Increment(ref outstandingRequests) > MaxOutstandingRequests)
                 {
                     Interlocked.Decrement(ref outstandingRequests);

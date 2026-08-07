@@ -10,6 +10,14 @@ internal sealed class SystemModule : IWorkerModule
             WorkerResponse.Json(
                 new StatusResult(true, Environment.ProcessId),
                 WorkerJsonContext.Default.StatusResult));
+        context.Register("worker/hello", _ =>
+            WorkerResponse.Json(
+                new WorkerHelloResult(
+                    true,
+                    Environment.ProcessId,
+                    WorkerProtocol.Version,
+                    Environment.GetEnvironmentVariable("OPEN_COWORK_APP_VERSION")),
+                WorkerJsonContext.Default.WorkerHelloResult));
         context.Register("worker/routes", _ =>
             WorkerResponse.Json(
                 new WorkerRoutesResult(context.GetRegisteredMethods()),
