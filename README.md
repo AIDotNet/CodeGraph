@@ -12,7 +12,7 @@ a git submodule.
 
 | Project | Purpose |
 | --- | --- |
-| `OpenCowork.Worker.Runtime` | Shared worker runtime: IPC transport, dispatch, host builder, `SystemModule`. Single source of truth for the worker protocol. |
+| `OpenCowork.Worker.Runtime` | Shared worker runtime: split Control/Event IPC transport, dispatch, host builder, `SystemModule`. Single source of truth for worker protocol v2. |
 | `OpenCowork.CodeGraph.Core` | The engine — scanning, extraction, storage, traversal, query, and the `codegraph/*` module + MCP tool surface. |
 | `OpenCowork.CodeGraph.Worker` | Thin AOT executable hosting `SystemModule` + `CodeGraphModule`. |
 | `OpenCowork.CodeGraph.Mcp` | Dedicated AOT executable exposing the CodeGraph tools as a standard MCP stdio server. |
@@ -45,8 +45,18 @@ Requires the .NET 10 SDK. Supported RIDs: `osx-arm64`, `osx-x64`, `win-x64`, `wi
 ./OpenCowork.CodeGraph.Worker
 
 # IPC worker mode.
-./OpenCowork.CodeGraph.Worker --ipc <endpoint>
+./OpenCowork.CodeGraph.Worker \
+  --control-ipc <control-endpoint> \
+  --event-ipc <event-endpoint> \
+  --host-id <stable-client-id>
 ```
+
+Control and Event endpoints must be different. Both use four-byte-length-prefixed MessagePack.
+Control carries requests, responses, health checks, and cancellation; Event carries one-way
+progress. A blocked Event consumer therefore cannot block `worker/ping`. The standalone CodeGraph
+worker keeps its CodeGraph routes inline; when CodeGraph is source-linked into
+`OpenCowork.Native.Worker`, those long routes are registered with the Native Worker's durable Job
+queue.
 
 ### MCP over stdio
 

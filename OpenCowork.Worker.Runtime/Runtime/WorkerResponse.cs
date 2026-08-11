@@ -75,6 +75,13 @@ internal sealed class WorkerResponse
         return WorkerJson.WriteResponse(id, resultWriter);
     }
 
+    public byte[] ToResultJsonBytes()
+    {
+        return messagePackResult is not null
+            ? MessagePackJsonTranscoder.ToJsonBytes(messagePackResult)
+            : WorkerJson.WriteValue(resultWriter);
+    }
+
     public bool TryGetMessagePackResult(out ReadOnlyMemory<byte> result)
     {
         result = messagePackResult;

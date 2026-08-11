@@ -20,7 +20,9 @@ internal sealed class SystemModule : IWorkerModule
                 WorkerJsonContext.Default.WorkerHelloResult));
         context.Register("worker/routes", _ =>
             WorkerResponse.Json(
-                new WorkerRoutesResult(context.GetRegisteredMethods()),
+                new WorkerRoutesResult(
+                    context.GetRegisteredMethods(),
+                    context.GetRouteDescriptors()),
                 WorkerJsonContext.Default.WorkerRoutesResult));
         context.Register("worker/memory", _ =>
             WorkerResponse.Json(

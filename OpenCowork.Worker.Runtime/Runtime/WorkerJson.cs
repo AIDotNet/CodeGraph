@@ -39,6 +39,16 @@ internal static class WorkerJson
         return buffer.WrittenMemory.ToArray();
     }
 
+    public static byte[] WriteValue(Action<Utf8JsonWriter> writeValue)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
+        {
+            writeValue(writer);
+        }
+        return buffer.WrittenMemory.ToArray();
+    }
+
     private static void WriteId(Utf8JsonWriter writer, JsonElement? id)
     {
         writer.WritePropertyName("id");

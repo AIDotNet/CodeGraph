@@ -2,7 +2,7 @@ using System.Text;
 
 // Thin AOT host for the opt-in CodeGraph sidecar (reference/04 §2). Mirrors the main
 // worker's Program.cs bootstrap (…/OpenCowork.Native.Worker/Program.cs) — parse the
-// --ipc endpoint, build a WorkerHost, run the length-prefixed MessagePack IPC server —
+// --control-ipc/--event-ipc endpoints, build a WorkerHost, run the split MessagePack IPC servers —
 // but its module catalog contains ONLY CodeGraphModule. The runtime host types
 // (WorkerEndpoint, WorkerHostBuilder, WorkerHost, LocalIpcWorkerServer, …) are ported
 // into OpenCowork.CodeGraph.Core and exposed to this exe via InternalsVisibleTo.

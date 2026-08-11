@@ -24,25 +24,56 @@ internal sealed class LocalIpcWorkerServer
 
     private readonly WorkerDispatcher dispatcher;
     private readonly WorkerEndpoint endpoint;
+    private readonly LocalIpcWorkerEventServer eventServer;
 
     public LocalIpcWorkerServer(WorkerDispatcher dispatcher, WorkerEndpoint endpoint)
     {
         this.dispatcher = dispatcher;
         this.endpoint = endpoint;
+        eventServer = new LocalIpcWorkerEventServer(endpoint.EventAddress);
     }
 
-    public Task RunAsync(CancellationToken cancellationToken = default)
+    public async Task RunAsync(CancellationToken cancellationToken = default)
     {
-        return OperatingSystem.IsWindows()
-            ? RunNamedPipeAsync(cancellationToken)
-            : RunUnixSocketAsync(cancellationToken);
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        WorkerTransportHub.ConfigureWorkerCancellation(lifetime.Token);
+        WorkerTransportHub.SetEventPublisher(eventServer.PublishAsync, eventServer.TryPublish);
+
+        var controlTask = OperatingSystem.IsWindows()
+            ? RunNamedPipeAsync(lifetime.Token)
+            : RunUnixSocketAsync(lifetime.Token);
+        var eventTask = eventServer.RunAsync(lifetime.Token);
+
+        try
+        {
+            var completed = await Task.WhenAny(controlTask, eventTask);
+            await completed;
+            if (completed == eventTask)
+            {
+                throw new IOException("Native worker Event IPC server stopped unexpectedly.");
+            }
+        }
+        finally
+        {
+            await lifetime.CancelAsync();
+            WorkerTransportHub.ClearControlPublisher();
+            WorkerTransportHub.ClearEventPublisher();
+            try
+            {
+                await eventTask;
+            }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
+            {
+                // Expected during worker shutdown.
+            }
+        }
     }
 
     private async Task RunNamedPipeAsync(CancellationToken cancellationToken)
     {
-        var pipeName = endpoint.Address.StartsWith(@"\\.\pipe\", StringComparison.OrdinalIgnoreCase)
-            ? endpoint.Address[@"\\.\pipe\".Length..]
-            : endpoint.Address;
+        var pipeName = endpoint.ControlAddress.StartsWith(@"\\.\pipe\", StringComparison.OrdinalIgnoreCase)
+            ? endpoint.ControlAddress[@"\\.\pipe\".Length..]
+            : endpoint.ControlAddress;
 
         WorkerLog.Info(
             $"server listening transport=named-pipe debug={WorkerLog.DebugEnabled} " +
@@ -86,10 +117,10 @@ internal sealed class LocalIpcWorkerServer
 
     private async Task RunUnixSocketAsync(CancellationToken cancellationToken)
     {
-        TryDeleteSocketFile(endpoint.Address);
+        TryDeleteSocketFile(endpoint.ControlAddress);
 
         using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-        listener.Bind(new UnixDomainSocketEndPoint(endpoint.Address));
+        listener.Bind(new UnixDomainSocketEndPoint(endpoint.ControlAddress));
         listener.Listen(backlog: 1);
         WorkerLog.Info(
             $"server listening transport=unix-domain-socket debug={WorkerLog.DebugEnabled} " +
@@ -134,7 +165,7 @@ internal sealed class LocalIpcWorkerServer
         }
         finally
         {
-            TryDeleteSocketFile(endpoint.Address);
+            TryDeleteSocketFile(endpoint.ControlAddress);
         }
     }
 
@@ -147,6 +178,15 @@ internal sealed class LocalIpcWorkerServer
         var dispatchTasks = new ConcurrentDictionary<Task, byte>();
         var sawTraffic = false;
         var outstandingRequests = 0;
+
+        WorkerTransportHub.SetControlPublisher(
+            (eventName, writeParameters, eventCancellationToken) =>
+                WriteEventFrameAsync(
+                    stream,
+                    writeLock,
+                    eventName,
+                    writeParameters,
+                    eventCancellationToken));
 
         try
         {
@@ -285,6 +325,7 @@ internal sealed class LocalIpcWorkerServer
         }
         finally
         {
+            WorkerTransportHub.ClearControlPublisher();
             await clientCts.CancelAsync();
             foreach (var activeRequest in activeRequests.Values)
             {
@@ -315,8 +356,7 @@ internal sealed class LocalIpcWorkerServer
             request,
             (eventName, writeParameters, eventCancellationToken) =>
                 WriteEventFrameAsync(stream, writeLock, eventName, writeParameters, eventCancellationToken),
-            (messagePackEvent, eventCancellationToken) =>
-                WriteMessagePackEventFrameAsync(stream, writeLock, messagePackEvent, eventCancellationToken),
+            eventServer.PublishAsync,
             requestCancellationToken,
             connectionCancellationToken);
         await WritePayloadAsync(stream, writeLock, response, connectionCancellationToken);

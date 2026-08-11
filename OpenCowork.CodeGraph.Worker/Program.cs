@@ -2,11 +2,11 @@ using System.Text;
 using System.Text.Json;
 
 // Host for the opt-in CodeGraph sidecar (reference/04). Two modes:
-//   --ipc <endpoint>  → run the length-prefixed MessagePack IPC worker; module catalog =
+//   --control-ipc/--event-ipc → run the length-prefixed MessagePack IPC worker; module catalog =
 //                       { SystemModule (worker/ping·routes·memory), CodeGraphModule (codegraph/*) }.
 //                       The shared runtime (WorkerHostBuilder, LocalIpcWorkerServer, transport,
 //                       SystemModule) comes from OpenCowork.Worker.Runtime.
-//   (no --ipc)        → M0 self-test: prove FTS5 + the tree-sitter binding in this binary, then exit.
+//   (no IPC endpoints) → M0 self-test: prove FTS5 + the tree-sitter binding, then exit.
 internal static class Program
 {
     public static async Task<int> Main(string[] args)
@@ -17,7 +17,7 @@ internal static class Program
         // an OPEN_COWORK_CODEGRAPH_GRAMMARS_DIR update/dev override.
         CodeGraphNativeLibraryResolver.Install();
 
-        if (Array.IndexOf(args, "--ipc") >= 0)
+        if (Array.IndexOf(args, "--control-ipc") >= 0)
         {
             try
             {
@@ -42,7 +42,7 @@ internal static class Program
 
     private static int RunSelfTest()
     {
-        Console.WriteLine("== OpenCowork.CodeGraph.Worker · self-test (no --ipc) ==");
+        Console.WriteLine("== OpenCowork.CodeGraph.Worker · self-test (no IPC endpoints) ==");
 
         CodeGraphDbSmokeResult smoke = CodeGraphDbSmoke.Run();
         Console.WriteLine("db-smoke : " + JsonSerializer.Serialize(smoke, CodeGraphJsonContext.Default.CodeGraphDbSmokeResult));

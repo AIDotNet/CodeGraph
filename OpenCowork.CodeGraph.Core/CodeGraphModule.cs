@@ -13,6 +13,10 @@ internal sealed class CodeGraphModule : IWorkerModule
 
     public void Register(WorkerModuleContext context)
     {
+        var durableJobs = string.Equals(
+            Environment.GetEnvironmentVariable("OPEN_COWORK_RUNTIME_JOBS"),
+            "1",
+            StringComparison.Ordinal);
         // Kept from M0: the raw FTS5/SQLite round-trip probe (no input).
         context.Register("codegraph/db-smoke", _ =>
             WorkerResponse.Json(
@@ -21,13 +25,29 @@ internal sealed class CodeGraphModule : IWorkerModule
 
         // Lifecycle / index — the WorkerRequestContext overload so index/sync can stream
         // codegraph/index-progress + codegraph/index-complete while they run.
-        context.Register("codegraph/index", CodeGraphToolHandler.IndexRpc);
-        context.Register("codegraph/sync", CodeGraphToolHandler.SyncRpc);
+        if (durableJobs)
+        {
+            context.RegisterJob("codegraph/index", CodeGraphToolHandler.IndexRpc, lanePolicy: "project");
+            context.RegisterJob("codegraph/sync", CodeGraphToolHandler.SyncRpc, lanePolicy: "project");
+        }
+        else
+        {
+            context.Register("codegraph/index", CodeGraphToolHandler.IndexRpc);
+            context.Register("codegraph/sync", CodeGraphToolHandler.SyncRpc);
+        }
 
         // Tool-shaped queries (CodeGraphToolResult text the agent consumes verbatim).
         context.Register("codegraph/status", CodeGraphToolHandler.StatusRpc);
-        context.Register("codegraph/explore", CodeGraphToolHandler.ExploreRpc);
-        context.Register("codegraph/search", CodeGraphToolHandler.SearchRpc);
+        if (durableJobs)
+        {
+            context.RegisterJob("codegraph/explore", CodeGraphToolHandler.ExploreRpc, lanePolicy: "project");
+            context.RegisterJob("codegraph/search", CodeGraphToolHandler.SearchRpc, lanePolicy: "project");
+        }
+        else
+        {
+            context.Register("codegraph/explore", CodeGraphToolHandler.ExploreRpc);
+            context.Register("codegraph/search", CodeGraphToolHandler.SearchRpc);
+        }
         context.Register("codegraph/node", CodeGraphToolHandler.NodeRpc);
         context.Register("codegraph/callers", CodeGraphToolHandler.CallersRpc);
         context.Register("codegraph/callees", CodeGraphToolHandler.CalleesRpc);
