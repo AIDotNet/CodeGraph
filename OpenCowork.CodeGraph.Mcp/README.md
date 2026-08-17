@@ -5,7 +5,7 @@ search, call graphs, impact analysis, indexed file browsing, and source context.
 
 ## Run without installing
 
-Requires the .NET 10 SDK:
+Requires the .NET 11 SDK Preview 7 or newer:
 
 ```bash
 dnx OpenCowork.CodeGraph.Mcp@1.0.0 --project /absolute/path/to/project

@@ -1,4 +1,6 @@
 bin/
+!npm/codegraph-mcp/bin/
+!npm/codegraph-mcp/bin/opencowork-codegraph-mcp.mjs
 obj/
 .vs/
 .idea/

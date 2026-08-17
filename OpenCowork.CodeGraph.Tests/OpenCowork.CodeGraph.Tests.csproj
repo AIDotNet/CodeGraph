@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- WS-B TDD oracle. net10.0 JIT test host — NOT AOT, reflection-enabled JSON is
+  <!-- WS-B TDD oracle. net11.0 JIT test host — NOT AOT, reflection-enabled JSON is
        fine here (xUnit/Test.Sdk need reflection). Deliberately kept out of any
        `dotnet publish` graph: the worker Exe publishes AOT; this project is only ever
-       run via `dotnet test`. Package versions are pinned to what is already in the
-       ~/.nuget cache so restore is fully offline. Microsoft.Data.Sqlite +
-       SQLitePCLRaw.bundle_e_sqlite3 are pinned to the SAME versions as the Core lib
-       so FTS5/bm25 behavior matches byte-for-byte (WS-B / R11). -->
+       run via `dotnet test`. Microsoft.Data.Sqlite + SQLitePCLRaw.bundle_e_sqlite3
+       are pinned to the SAME versions as the Core lib so FTS5/bm25 behavior matches
+       byte-for-byte (WS-B / R11). -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
+    <Features>runtime-async=on</Features>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>false</InvariantGlobalization>
@@ -28,7 +28,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <!-- Match Core's SQLite stack exactly (FTS5 + bm25 parity). -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0-preview.7.26381.103" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <!-- Native test assets only. GeneratePathProperty gives the copy target a
          NuGet-root-independent package path on every CI host. -->

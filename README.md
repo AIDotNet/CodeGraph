@@ -35,8 +35,8 @@ dotnet publish OpenCowork.CodeGraph.Mcp/OpenCowork.CodeGraph.Mcp.csproj \
   -c Release -r osx-arm64 -o out-mcp /p:PublishAot=true /p:StripSymbols=true
 ```
 
-Requires the .NET 10 SDK. Supported RIDs: `osx-arm64`, `osx-x64`, `win-x64`, `win-arm64`,
-`linux-x64`, `linux-arm64`.
+Requires the .NET 11 SDK Preview 7 or newer. Supported RIDs: `osx-arm64`, `osx-x64`,
+`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`.
 
 ## Running
 
@@ -93,7 +93,8 @@ surface contains only `codegraph_explore`.
 The independent npm project under `npm/` packages the framework-dependent .NET MCP server
 with native tree-sitter assets for macOS, Linux, and Windows on x64/arm64. The Node launcher
 selects the current platform assets and starts the server over stdio; it does not rewrite
-the MCP as JavaScript. End users need Node.js 18 or later and the .NET 10 runtime.
+the MCP as JavaScript. End users need Node.js 18 or later and the .NET 11 Preview 7 runtime
+or newer.
 
 Run the published package without installing it globally:
 

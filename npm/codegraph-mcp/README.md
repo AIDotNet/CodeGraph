@@ -6,7 +6,7 @@ impact analysis, and indexed file browsing.
 ## Requirements
 
 - Node.js 18 or later
-- .NET 10 runtime
+- .NET 11 Preview 7 runtime or newer
 - macOS, Linux, or Windows on x64/arm64
 
 ## Run with npx
